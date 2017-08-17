@@ -1,0 +1,61 @@
+Steps to follow while patching Instances in AWS:
+------------------------------------------------
+
+1. Configure appropriate IAM permissions for SSM and configure 'Passrole' permission for Maintenance window
+
+
+2. Create a patch baseline
+	- This baseline contains all the rules for patching the packages
+	- Defined rules to patch security updates or bug fixes or any update etc
+	- Defined rules for auto approval of patches etc
+	- Classify packages based on criticality
+
+	Example : aws ssm create-patch-baseline --name "Production-Baseline" --operating-system "AMAZON_LINUX" --approval-rules  "PatchRules=[{PatchFilterGroup={PatchFilters=[{Key=PRODUCT,Values=[AmazonLinux2016.03,AmazonLinux2016.09,AmazonLinux2017.03,AmazonLinux2017.09]},{Key=SEVERITY,Values=[Critical,Important]},{Key=CLASSIFICATION,Values=[Security]}]},ApproveAfterDays=7}]" --description "Baseline containing all updates approved for production systems"
+
+
+3. Create a patch group and add instances to the patch group [optional]
+	- This allows for easy patching by grouping the instances
+	- ec2 tags are used for grouping
+
+
+4. Create a maintenance window for patching
+	- Maintenance window tells you the time and date in which the specified instances 	    patching will occur
+
+	Example : aws ssm create-maintenance-window --name "Production-Tuesdays" --schedule "cron(0 0 22 ? * TUE *)" --duration 1 --cutoff 0 --no-allow-unassociated-targets 
+
+
+5. Register instances/group with the maintenance window
+
+	Example : aws ssm register-target-with-maintenance-window --window-id mw-0c66948c711a3b5bd --targets "Key=tag:Patch Group,Values=Database Servers" --owner-information "Database servers" --resource-type "INSTANCE"
+
+
+6. Scan the instances so that the SSM Patch manager knows the package details in the instances
+
+	Example : ./easy-patcher.py --scan instance-list.txt --profile aws-admin --bucket skrish-test1  
+
+7. Get the patch count or detailed package level information by executing the tool
+
+	Example : ./easy-patcher.py --getpatches instance-list.txt --profile aws-admin --bucket skrish-test1  
+	[Gives the patch count on the instances]
+
+	Example : ./easy-patcher.py --getdetails instance-list.txt --profile aws-admin --bucket skrish-test1 
+	[Gives the package level details of the patches]
+
+
+8. Install the patches on the instances by executing the tool
+
+	Example : ./easy-patcher.py --patch instance-list.txt --profile aws-admin --bucket skrish-test1
+	[This command triggers the patching of instances]
+	[This would take time to complete and the status can be checked in the console]
+
+
+9. Check the status of patch count after patching is done
+
+	Example : ./easy-patcher.py --getpatches instance-list.txt --profile aws-admin --bucket skrish-test1
+
+
+
+References:
+-----------
+
+- http://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-patch-walkthrough.html#sysman-patch-cliwalk
